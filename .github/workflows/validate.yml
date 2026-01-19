@@ -1,0 +1,65 @@
+name: Validate
+
+on:
+  workflow_call:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    uses: ./.github/workflows/test.yml
+
+  validate:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-3.12-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-3.12-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run linting with ruff
+        run: ruff check lacuna/ tests/
+
+      - name: Run type checking with mypy
+        run: mypy lacuna/ --ignore-missing-imports
+
+      - name: Check code formatting with black
+        run: black --check lacuna/ tests/
+
+      - name: Check import sorting with ruff
+        run: ruff check --select I lacuna/ tests/
+
+      - name: Check for security issues with bandit
+        run: |
+          pip install bandit
+          bandit -r lacuna/ -ll
+
+      - name: Check docstrings with pydocstyle
+        run: |
+          pip install pydocstyle
+          pydocstyle lacuna/ --convention=google || true
+
+      - name: Check for dead code with vulture
+        run: |
+          pip install vulture
+          vulture lacuna/ --min-confidence 80 || true
+
