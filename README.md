@@ -1,4 +1,6 @@
 # Lacuna
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fwitlox%2Flacuna.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fwitlox%2Flacuna?ref=badge_shield)
+
 
 **Protected space for data governance, lineage, and privacy-aware operations**
 
@@ -309,6 +311,9 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 ## License
 
 Lacuna is licensed under the [Apache 2.0](LICENSE).
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fwitlox%2Flacuna.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fwitlox%2Flacuna?ref=badge_large)
 
 ## Support
 
