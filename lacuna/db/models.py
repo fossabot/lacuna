@@ -1,0 +1,211 @@
+"""SQLAlchemy database models for Lacuna."""
+
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+from uuid import uuid4
+
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, INET, UUID
+from sqlalchemy.orm import relationship
+
+from lacuna.db.base import Base
+
+
+class ClassificationModel(Base):
+    """Database model for classification records."""
+
+    __tablename__ = "classifications"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Classification result
+    tier = Column(String(20), nullable=False, index=True)
+    confidence = Column(Float, nullable=False)
+    reasoning = Column(Text, nullable=False)
+    matched_rules = Column(ARRAY(String), default=list)
+    tags = Column(ARRAY(String), default=list, index=True)
+
+    # Classifier information
+    classifier_name = Column(String(100), nullable=False)
+    classifier_version = Column(String(50))
+
+    # Lineage
+    parent_id = Column(UUID(as_uuid=True), ForeignKey("classifications.id"))
+
+    # Metadata
+    metadata = Column(JSON, default=dict)
+
+    # Relationships
+    parent = relationship("ClassificationModel", remote_side=[id])
+
+    __table_args__ = (
+        Index("idx_classification_tier_timestamp", "tier", "timestamp"),
+        Index("idx_classification_tags", "tags", postgresql_using="gin"),
+    )
+
+
+class LineageEdgeModel(Base):
+    """Database model for lineage edges."""
+
+    __tablename__ = "lineage_edges"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Source and target artifacts
+    source_artifact_id = Column(String(500), nullable=False, index=True)
+    target_artifact_id = Column(String(500), nullable=False, index=True)
+
+    # Operation type
+    operation_type = Column(String(50), nullable=False)
+
+    # Classifications
+    source_classification_id = Column(
+        UUID(as_uuid=True), ForeignKey("classifications.id")
+    )
+    target_classification_id = Column(
+        UUID(as_uuid=True), ForeignKey("classifications.id")
+    )
+
+    # Metadata
+    metadata = Column(JSON, default=dict)
+
+    # Relationships
+    source_classification = relationship(
+        "ClassificationModel", foreign_keys=[source_classification_id]
+    )
+    target_classification = relationship(
+        "ClassificationModel", foreign_keys=[target_classification_id]
+    )
+
+    __table_args__ = (
+        Index("idx_lineage_source", "source_artifact_id", "timestamp"),
+        Index("idx_lineage_target", "target_artifact_id", "timestamp"),
+        Index(
+            "idx_lineage_unique",
+            "source_artifact_id",
+            "target_artifact_id",
+            "operation_type",
+            unique=True,
+        ),
+    )
+
+
+class AuditLogModel(Base):
+    """ISO 27001-compliant audit log model."""
+
+    __tablename__ = "audit_log"
+
+    # Core identity
+    event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    event_type = Column(String(50), nullable=False, index=True)
+    severity = Column(String(20), nullable=False, index=True)
+
+    # Actor identification
+    user_id = Column(String(255), nullable=False, index=True)
+    user_session_id = Column(String(255))
+    user_ip_address = Column(INET)
+    user_role = Column(String(100))
+    user_department = Column(String(100))
+
+    # Target resource
+    resource_type = Column(String(50), nullable=False)
+    resource_id = Column(String(500), nullable=False, index=True)
+    resource_classification = Column(String(20), index=True)
+    resource_tags = Column(ARRAY(String), default=list)
+
+    # Action details
+    action = Column(String(100), nullable=False)
+    action_result = Column(String(20), nullable=False, index=True)
+    action_metadata = Column(JSON, default=dict)
+
+    # Policy/Governance
+    policy_id = Column(String(100))
+    policy_version = Column(String(50))
+    classification_tier = Column(String(20))
+    classification_confidence = Column(Float)
+    classification_reasoning = Column(Text)
+
+    # Lineage/Provenance
+    parent_event_id = Column(UUID(as_uuid=True), ForeignKey("audit_log.event_id"))
+    lineage_chain = Column(ARRAY(String), default=list)
+
+    # Compliance metadata
+    compliance_flags = Column(ARRAY(String), default=list)
+    retention_period_days = Column(Integer, default=2555)
+
+    # Tamper detection (hash chain)
+    previous_record_hash = Column(String(64))
+    record_hash = Column(String(64), nullable=False)
+    signature = Column(Text)
+
+    # System context
+    system_id = Column(String(100))
+    system_version = Column(String(50))
+
+    # Relationships
+    parent_event = relationship("AuditLogModel", remote_side=[event_id])
+
+    __table_args__ = (
+        Index("idx_audit_timestamp", "timestamp"),
+        Index("idx_audit_user_timestamp", "user_id", "timestamp"),
+        Index("idx_audit_resource_timestamp", "resource_id", "timestamp"),
+        Index("idx_audit_classification_timestamp", "resource_classification", "timestamp"),
+        Index("idx_audit_tags", "resource_tags", postgresql_using="gin"),
+        Index("idx_audit_event_type", "event_type", "timestamp"),
+        Index("idx_audit_action_result", "action_result", "timestamp"),
+    )
+
+
+class PolicyEvaluationModel(Base):
+    """Database model for policy evaluation records."""
+
+    __tablename__ = "policy_evaluations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+    # Policy information
+    policy_id = Column(String(100), nullable=False, index=True)
+    policy_version = Column(String(50))
+    policy_name = Column(String(255))
+
+    # Evaluation result
+    allowed = Column(String(20), nullable=False, index=True)  # "allow", "deny", "error"
+    reason = Column(Text, nullable=False)
+    confidence = Column(Float)
+
+    # Context
+    user_id = Column(String(255), nullable=False, index=True)
+    resource_id = Column(String(500), nullable=False)
+    operation_type = Column(String(50), nullable=False)
+
+    # Classification at time of evaluation
+    classification_id = Column(UUID(as_uuid=True), ForeignKey("classifications.id"))
+
+    # Evaluation metadata
+    evaluation_duration_ms = Column(Float)
+    alternatives = Column(JSON, default=list)
+    metadata = Column(JSON, default=dict)
+
+    # Relationships
+    classification = relationship("ClassificationModel")
+
+    __table_args__ = (
+        Index("idx_policy_eval_timestamp", "timestamp"),
+        Index("idx_policy_eval_user", "user_id", "timestamp"),
+        Index("idx_policy_eval_resource", "resource_id", "timestamp"),
+        Index("idx_policy_eval_result", "allowed", "timestamp"),
+    )
