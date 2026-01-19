@@ -1,0 +1,35 @@
+# Lacuna Test Image
+# Used for running tests in containerized environment
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install build and test dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy dependency files
+COPY pyproject.toml README.md ./
+COPY lacuna/ lacuna/
+
+# Install package with dev dependencies
+RUN pip install --no-cache-dir -e ".[dev]"
+
+# Copy test files
+COPY tests/ tests/
+COPY config/ config/
+COPY policies/ policies/
+COPY migrations/ migrations/
+COPY alembic.ini ./
+
+# Environment
+ENV PYTHONPATH=/app
+ENV LACUNA_CONFIG_PATH=/app/config
+
+# Default command - run all tests with coverage
+CMD ["python", "-m", "pytest", "tests/", "-v", "--cov=lacuna", "--cov-report=term-missing", "--cov-report=html:/app/htmlcov"]
+

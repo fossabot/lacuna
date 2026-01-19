@@ -1,10 +1,15 @@
 """Classification models for data sensitivity tiers."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
+
+
+def _utc_now() -> datetime:
+    """Get current UTC time in a timezone-aware manner."""
+    return datetime.now(timezone.utc)
 
 
 class DataTier(str, Enum):
@@ -71,7 +76,7 @@ class ClassificationContext:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     # Timestamp
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utc_now)
 
 
 @dataclass
@@ -93,7 +98,7 @@ class Classification:
     classifier_name: str = "unknown"
     classifier_version: Optional[str] = None
     classification_id: UUID = field(default_factory=uuid4)
-    classified_at: datetime = field(default_factory=datetime.utcnow)
+    classified_at: datetime = field(default_factory=_utc_now)
 
     # Lineage
     parent_classification_id: Optional[UUID] = None
@@ -137,7 +142,7 @@ class Classification:
             else uuid4(),
             classified_at=datetime.fromisoformat(data["classified_at"])
             if "classified_at" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             parent_classification_id=(
                 UUID(data["parent_classification_id"])
                 if data.get("parent_classification_id")

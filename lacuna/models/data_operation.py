@@ -1,10 +1,15 @@
 """Data operation models for tracking data access and transformations."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
+
+
+def _utc_now() -> datetime:
+    """Get current UTC time in a timezone-aware manner."""
+    return datetime.now(timezone.utc)
 
 
 class OperationType(str, Enum):
@@ -91,7 +96,7 @@ class DataOperation:
     # Operation identification
     operation_id: UUID = field(default_factory=uuid4)
     operation_type: OperationType = OperationType.READ
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utc_now)
 
     # Resource information
     resource_type: str = "unknown"  # file, table, dataset, query
@@ -170,7 +175,7 @@ class DataOperation:
             operation_type=OperationType(data.get("operation_type", "read")),
             timestamp=datetime.fromisoformat(data["timestamp"])
             if "timestamp" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             resource_type=data.get("resource_type", "unknown"),
             resource_id=data.get("resource_id", ""),
             resource_path=data.get("resource_path"),

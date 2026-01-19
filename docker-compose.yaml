@@ -1,0 +1,125 @@
+# Lacuna Local Development Environment
+# Provides PostgreSQL, Redis, and optional OPA for policy evaluation
+
+services:
+  # PostgreSQL database for audit logs and lineage storage
+  postgres:
+    image: postgres:16-alpine
+    container_name: lacuna-postgres
+    environment:
+      POSTGRES_USER: lacuna
+      POSTGRES_PASSWORD: lacuna
+      POSTGRES_DB: lacuna
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lacuna -d lacuna"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lacuna-network
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: lacuna-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lacuna-network
+
+  # Open Policy Agent for policy evaluation
+  opa:
+    image: openpolicyagent/opa:latest-static
+    container_name: lacuna-opa
+    ports:
+      - "8181:8181"
+    command:
+      - "run"
+      - "--server"
+      - "--log-level=info"
+      - "--addr=0.0.0.0:8181"
+      - "/policies"
+    volumes:
+      - ./policies:/policies:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8181/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lacuna-network
+
+  # Lacuna API service
+  lacuna-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lacuna-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Database
+      LACUNA_DATABASE_URL: postgresql://lacuna:lacuna@postgres:5432/lacuna
+      # Redis
+      LACUNA_REDIS_URL: redis://redis:6379/0
+      # OPA
+      LACUNA_POLICY_ENABLED: "true"
+      LACUNA_POLICY_OPA_ENDPOINT: http://opa:8181
+      # Logging
+      LACUNA_LOGGING_LEVEL: INFO
+      LACUNA_LOGGING_FORMAT: json
+      # Classification
+      LACUNA_CLASSIFICATION_EMBEDDING_ENABLED: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      opa:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    networks:
+      - lacuna-network
+
+  # Database migrations
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lacuna-migrate
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      LACUNA_DATABASE_URL: postgresql://lacuna:lacuna@postgres:5432/lacuna
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - lacuna-network
+    profiles:
+      - migrate
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  lacuna-network:
+    driver: bridge
+

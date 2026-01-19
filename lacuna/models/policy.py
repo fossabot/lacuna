@@ -1,9 +1,14 @@
 """Policy models for OPA integration and policy evaluation."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
+
+
+def _utc_now() -> datetime:
+    """Get current UTC time in a timezone-aware manner."""
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -18,7 +23,7 @@ class PolicyDecision:
     # Decision
     allowed: bool = False
     decision_id: UUID = field(default_factory=uuid4)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utc_now)
 
     # Policy information
     policy_id: Optional[str] = None
@@ -64,7 +69,7 @@ class PolicyDecision:
             decision_id=UUID(data["decision_id"]) if "decision_id" in data else uuid4(),
             timestamp=datetime.fromisoformat(data["timestamp"])
             if "timestamp" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             policy_id=data.get("policy_id"),
             policy_version=data.get("policy_version"),
             policy_name=data.get("policy_name"),
@@ -203,7 +208,7 @@ class PolicyEvaluation:
 
     # Evaluation metadata
     evaluation_id: UUID = field(default_factory=uuid4)
-    evaluated_at: datetime = field(default_factory=datetime.utcnow)
+    evaluated_at: datetime = field(default_factory=_utc_now)
 
     # Input that was evaluated
     policy_input: Optional[PolicyInput] = None
@@ -248,7 +253,7 @@ class PolicyEvaluation:
             else uuid4(),
             evaluated_at=datetime.fromisoformat(data["evaluated_at"])
             if "evaluated_at" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             policy_input=(
                 PolicyInput.from_dict(policy_input_data) if policy_input_data else None
             ),
@@ -295,8 +300,8 @@ class PolicyRule:
 
     # Metadata
     version: str = "1.0.0"
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
     created_by: Optional[str] = None
     tags: List[str] = field(default_factory=list)
 
@@ -333,10 +338,10 @@ class PolicyRule:
             version=data.get("version", "1.0.0"),
             created_at=datetime.fromisoformat(data["created_at"])
             if "created_at" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             updated_at=datetime.fromisoformat(data["updated_at"])
             if "updated_at" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             created_by=data.get("created_by"),
             tags=data.get("tags", []),
             enabled=data.get("enabled", True),

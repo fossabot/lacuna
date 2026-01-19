@@ -1,6 +1,6 @@
 """SQLAlchemy database models for Lacuna."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -21,13 +21,18 @@ from sqlalchemy.orm import relationship
 from lacuna.db.base import Base
 
 
+def _utc_now() -> datetime:
+    """Get current UTC time in a timezone-aware manner."""
+    return datetime.now(timezone.utc)
+
+
 class ClassificationModel(Base):
     """Database model for classification records."""
 
     __tablename__ = "classifications"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, nullable=False, default=_utc_now, index=True)
 
     # Classification result
     tier = Column(String(20), nullable=False, index=True)
@@ -61,7 +66,7 @@ class LineageEdgeModel(Base):
     __tablename__ = "lineage_edges"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, nullable=False, default=_utc_now, index=True)
 
     # Source and target artifacts
     source_artifact_id = Column(String(500), nullable=False, index=True)
@@ -109,7 +114,7 @@ class AuditLogModel(Base):
 
     # Core identity
     event_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, nullable=False, default=_utc_now, index=True)
     event_type = Column(String(50), nullable=False, index=True)
     severity = Column(String(20), nullable=False, index=True)
 
@@ -175,7 +180,7 @@ class PolicyEvaluationModel(Base):
     __tablename__ = "policy_evaluations"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    timestamp = Column(DateTime, nullable=False, default=_utc_now, index=True)
 
     # Policy information
     policy_id = Column(String(100), nullable=False, index=True)

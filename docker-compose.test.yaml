@@ -1,0 +1,99 @@
+# Lacuna Test Environment
+# Used for running integration tests with real services
+
+services:
+  # PostgreSQL database for testing
+  postgres-test:
+    image: postgres:16-alpine
+    container_name: lacuna-postgres-test
+    environment:
+      POSTGRES_USER: lacuna_test
+      POSTGRES_PASSWORD: lacuna_test
+      POSTGRES_DB: lacuna_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data  # Use tmpfs for faster tests
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lacuna_test -d lacuna_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - lacuna-test-network
+
+  # Redis for caching in tests
+  redis-test:
+    image: redis:7-alpine
+    container_name: lacuna-redis-test
+    ports:
+      - "6380:6379"
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - lacuna-test-network
+
+  # OPA for policy evaluation tests
+  opa-test:
+    image: openpolicyagent/opa:latest-static
+    container_name: lacuna-opa-test
+    ports:
+      - "8182:8181"
+    command:
+      - "run"
+      - "--server"
+      - "--log-level=error"
+      - "--addr=0.0.0.0:8181"
+      - "/policies"
+    volumes:
+      - ./policies:/policies:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8181/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - lacuna-test-network
+
+  # Integration test runner
+  integration-tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    container_name: lacuna-integration-tests
+    environment:
+      # Database
+      LACUNA_DATABASE_URL: postgresql://lacuna_test:lacuna_test@postgres-test:5432/lacuna_test
+      # Redis
+      LACUNA_REDIS_URL: redis://redis-test:6379/0
+      LACUNA_REDIS_ENABLED: "true"
+      # OPA
+      LACUNA_POLICY_ENABLED: "true"
+      LACUNA_POLICY_OPA_ENDPOINT: http://opa-test:8181
+      # Classification (disable embedding for faster tests)
+      LACUNA_CLASSIFICATION_EMBEDDING_ENABLED: "false"
+      LACUNA_CLASSIFICATION_LLM_ENABLED: "false"
+      # Test settings
+      PYTEST_ADDOPTS: "-v --tb=short"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      opa-test:
+        condition: service_healthy
+    volumes:
+      - ./tests:/app/tests:ro
+      - ./htmlcov:/app/htmlcov
+    networks:
+      - lacuna-test-network
+
+networks:
+  lacuna-test-network:
+    driver: bridge
+

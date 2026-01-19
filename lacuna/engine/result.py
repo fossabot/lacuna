@@ -1,13 +1,18 @@
 """Result model for governance engine evaluations."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
 from lacuna.models.classification import Classification
 from lacuna.models.data_operation import DataOperation
 from lacuna.models.policy import PolicyDecision
+
+
+def _utc_now() -> datetime:
+    """Get current UTC time in a timezone-aware manner."""
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -21,7 +26,7 @@ class GovernanceResult:
 
     # Identification
     evaluation_id: UUID = field(default_factory=uuid4)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utc_now)
 
     # The operation that was evaluated
     operation: Optional[DataOperation] = None

@@ -1,10 +1,15 @@
 """Audit models for ISO 27001-compliant logging."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
+
+
+def _utc_now() -> datetime:
+    """Get current UTC time in a timezone-aware manner."""
+    return datetime.now(timezone.utc)
 
 
 class EventType(str, Enum):
@@ -70,7 +75,7 @@ class AuditRecord:
 
     # Core Identity (A.12.4.1)
     event_id: UUID = field(default_factory=uuid4)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utc_now)
     event_type: EventType = EventType.DATA_ACCESS
     severity: Severity = Severity.INFO
 
@@ -166,7 +171,7 @@ class AuditRecord:
             event_id=UUID(data["event_id"]) if "event_id" in data else uuid4(),
             timestamp=datetime.fromisoformat(data["timestamp"])
             if "timestamp" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             event_type=EventType(data.get("event_type", "data.access")),
             severity=Severity(data.get("severity", "INFO")),
             user_id=data.get("user_id", ""),

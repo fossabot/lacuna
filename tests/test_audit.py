@@ -1,7 +1,7 @@
 """Tests for audit logging."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timezone
 
 from lacuna.models.audit import AuditRecord, AuditQuery, EventType, Severity
 
@@ -94,7 +94,7 @@ class TestAuditRecord:
             "resource_id": "customers",
             "action": "select",
             "action_result": "success",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         record = AuditRecord.from_dict(data)

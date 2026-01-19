@@ -1,9 +1,14 @@
 """Lineage models for tracking data flow and dependencies."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID, uuid4
+
+
+def _utc_now() -> datetime:
+    """Get current UTC time in a timezone-aware manner."""
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -17,7 +22,7 @@ class LineageEdge:
 
     # Edge identification
     edge_id: UUID = field(default_factory=uuid4)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utc_now)
 
     # Source and destination
     source_id: str = ""
@@ -69,7 +74,7 @@ class LineageEdge:
             edge_id=UUID(data["edge_id"]) if "edge_id" in data else uuid4(),
             timestamp=datetime.fromisoformat(data["timestamp"])
             if "timestamp" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             source_id=data.get("source_id", ""),
             destination_id=data.get("destination_id", ""),
             operation_type=data.get("operation_type", "unknown"),
@@ -105,7 +110,7 @@ class LineageNode:
     tags: List[str] = field(default_factory=list)
 
     # Creation metadata
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utc_now)
     created_by: Optional[str] = None
     created_via: Optional[str] = None  # Operation type that created this
 
@@ -139,7 +144,7 @@ class LineageNode:
             tags=data.get("tags", []),
             created_at=datetime.fromisoformat(data["created_at"])
             if "created_at" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             created_by=data.get("created_by"),
             created_via=data.get("created_via"),
             metadata=data.get("metadata", {}),
@@ -165,13 +170,13 @@ class LineageGraph:
     edges: List[LineageEdge] = field(default_factory=list)
 
     # Metadata
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=_utc_now)
+    updated_at: datetime = field(default_factory=_utc_now)
 
     def add_node(self, node: LineageNode) -> None:
         """Add a node to the graph."""
         self.nodes[node.node_id] = node
-        self.updated_at = datetime.utcnow()
+        self.updated_at = _utc_now()
 
     def add_edge(self, edge: LineageEdge) -> None:
         """Add an edge to the graph."""
@@ -182,7 +187,7 @@ class LineageGraph:
             self.add_node(LineageNode(node_id=edge.destination_id))
 
         self.edges.append(edge)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = _utc_now()
 
     def get_upstream(self, node_id: str, max_depth: Optional[int] = None) -> List[str]:
         """
@@ -328,10 +333,10 @@ class LineageGraph:
             description=data.get("description"),
             created_at=datetime.fromisoformat(data["created_at"])
             if "created_at" in data
-            else datetime.utcnow(),
+            else _utc_now(),
             updated_at=datetime.fromisoformat(data["updated_at"])
             if "updated_at" in data
-            else datetime.utcnow(),
+            else _utc_now(),
         )
 
         # Add nodes
